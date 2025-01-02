@@ -26,14 +26,14 @@ const SYSTEM_PROMPT = `You are a helpful assistant. Check your knowledge base be
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
-  const result = streamText({
+  const result = await streamText({
     model: ollama('llama3.1'),
     system: SYSTEM_PROMPT,
     messages,
     tools: {
       addResource: tool({
         description: `add a resource to your knowledge base.
-          If the user provides a random piece of knowledge unprompted, use this tool without asking for confirmation.`,
+              If the user provides a random piece of knowledge unprompted, use this tool without asking for confirmation.`,
         parameters: z.object({
           content: z
             .string()
@@ -51,5 +51,53 @@ export async function POST(req: Request) {
     },
   });
 
-  return result.toDataStreamResponse();
+  for await (const part of result.fullStream) {
+    switch (part.type) {
+      case 'text-delta': {
+        console.log('Text delta:', part.textDelta);
+        break;
+      }
+
+      case 'tool-call': {
+        switch (part.toolName) {
+          case 'addResource': {
+            console.log('TOOL CALL addResource');
+            console.log(`resource: ${part.args.content}`); // string
+            break;
+          }
+
+          case 'getInformation': {
+            console.log('TOOL CALL getInformation');
+            console.log(`resource: ${part.args.question}`); // string
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case 'tool-result': {
+        switch (part.toolName) {
+          case 'getInformation': {
+            console.log('TOOL RESULT getInformation');
+            console.log(`resource: ${part.args}`); // string
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case 'finish': {
+        console.log('Finish reason:', part.finishReason);
+        console.log('Usage:', part.usage);
+        break;
+      }
+
+      case 'error': {
+        console.error('Error:', part.error);
+        break;
+      }
+    }
+  }
 }

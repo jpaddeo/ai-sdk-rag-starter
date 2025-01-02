@@ -1,9 +1,10 @@
-import { streamText, tool } from 'ai';
+import { generateText, tool } from 'ai';
 
 import { ollama } from '@/lib/ai/ollama';
 import { z } from 'zod';
 import { createResource } from '@/lib/actions/resources';
 import { findRelevantContent } from '@/lib/ai/embedding';
+import { NextResponse } from 'next/server';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 120;
@@ -26,7 +27,7 @@ const SYSTEM_PROMPT = `You are a helpful assistant. Check your knowledge base be
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
-  const result = streamText({
+  const result = await generateText({
     model: ollama('llama3.1'),
     system: SYSTEM_PROMPT,
     messages,
@@ -51,5 +52,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return result.toDataStreamResponse();
+  return NextResponse.json(result.response);
 }
